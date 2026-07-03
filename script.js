@@ -87,13 +87,24 @@ function splitImagePaths(value) {
   return String(value || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 }
 
+function normalizeAssetPath(value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalized = value.trim().replace(/\\/g, "/");
+  const assetIndex = normalized.toLowerCase().indexOf("assets/");
+
+  return assetIndex >= 0 ? normalized.slice(assetIndex) : normalized;
+}
+
 function getProjectImages(project) {
   if (!project || typeof project !== "object") {
     return [];
   }
 
   if (Array.isArray(project.images)) {
-    const images = project.images.map((image) => String(image || "").trim()).filter(Boolean);
+    const images = project.images.map((image) => normalizeAssetPath(String(image || ""))).filter(Boolean);
 
     if (images.length) {
       return images;
@@ -101,14 +112,14 @@ function getProjectImages(project) {
   }
 
   if (typeof project.images === "string") {
-    const images = splitImagePaths(project.images);
+    const images = splitImagePaths(project.images).map(normalizeAssetPath);
 
     if (images.length) {
       return images;
     }
   }
 
-  return project.image ? [project.image] : [];
+  return project.image ? [normalizeAssetPath(project.image)] : [];
 }
 
 function normalizeProject(project) {
@@ -117,7 +128,7 @@ function normalizeProject(project) {
 
   return {
     ...safeProject,
-    image: safeProject.image || images[0] || "",
+    image: normalizeAssetPath(safeProject.image) || images[0] || "",
     images
   };
 }
@@ -160,7 +171,7 @@ function renderSocialLinks(socials) {
       link.rel = "noopener noreferrer";
       link.setAttribute("aria-label", social.name || "Social media");
 
-      icon.src = social.icon || "";
+      icon.src = normalizeAssetPath(social.icon) || "";
       icon.alt = "";
 
       link.appendChild(icon);
@@ -181,7 +192,7 @@ function renderTools(tools) {
       card.className = "tool-card";
       card.dataset.category = tool.category || "";
 
-      icon.src = tool.icon || "";
+      icon.src = normalizeAssetPath(tool.icon) || "";
       icon.alt = tool.name || "";
 
       label.textContent = tool.name || "";
@@ -329,8 +340,8 @@ function renderAbout(profile) {
 function renderProfile(data) {
   const profile = data.profile || {};
   const photo = profile.photo || {};
-  const heroPhoto = typeof photo === "string" ? photo : photo.hero;
-  const aboutPhoto = typeof photo === "string" ? photo : photo.about;
+  const heroPhoto = normalizeAssetPath(typeof photo === "string" ? photo : photo.hero);
+  const aboutPhoto = normalizeAssetPath(typeof photo === "string" ? photo : photo.about);
 
   setText("[data-profile-title]", profile.title);
   setText("[data-profile-name]", profile.name);
@@ -339,7 +350,7 @@ function renderProfile(data) {
   setImage("[data-about-photo]", aboutPhoto, `${profile.name || "Profile"} formal portrait`);
 
   document.querySelectorAll("[data-cv-link]").forEach((link) => {
-    link.href = profile.cvLink || "#";
+    link.href = normalizeAssetPath(profile.cvLink) || "#";
     link.setAttribute("download", "");
   });
 

@@ -110,6 +110,17 @@ function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function normalizeAssetPath(value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalized = value.trim().replace(/\\/g, "/");
+  const assetIndex = normalized.toLowerCase().indexOf("assets/");
+
+  return assetIndex >= 0 ? normalized.slice(assetIndex) : normalized;
+}
+
 function getDefaultData() {
   if (typeof portfolioData !== "undefined") {
     return deepClone(portfolioData);
@@ -149,14 +160,23 @@ function normalizeData(data) {
       ...profile,
       photo: {
         ...defaults.profile.photo,
-        ...photo
+        ...photo,
+        hero: normalizeAssetPath(photo.hero || defaults.profile.photo.hero),
+        about: normalizeAssetPath(photo.about || defaults.profile.photo.about)
       },
+      cvLink: normalizeAssetPath(profile.cvLink || defaults.profile.cvLink),
       about: Array.isArray(profile.about)
         ? profile.about
         : String(profile.about || "").split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean)
     },
-    socials: Array.isArray(safeData.socials) ? safeData.socials : defaults.socials,
-    tools: Array.isArray(safeData.tools) ? safeData.tools : defaults.tools,
+    socials: (Array.isArray(safeData.socials) ? safeData.socials : defaults.socials).map((social) => ({
+      ...social,
+      icon: normalizeAssetPath(social.icon)
+    })),
+    tools: (Array.isArray(safeData.tools) ? safeData.tools : defaults.tools).map((tool) => ({
+      ...tool,
+      icon: normalizeAssetPath(tool.icon)
+    })),
     projects: (Array.isArray(safeData.projects) ? safeData.projects : defaults.projects).map(normalizeProject)
   };
 }
@@ -224,7 +244,7 @@ function getProjectImages(project) {
   }
 
   if (Array.isArray(project.images)) {
-    const images = project.images.map((image) => String(image || "").trim()).filter(Boolean);
+    const images = project.images.map((image) => normalizeAssetPath(String(image || ""))).filter(Boolean);
 
     if (images.length) {
       return images;
@@ -232,14 +252,14 @@ function getProjectImages(project) {
   }
 
   if (typeof project.images === "string") {
-    const images = splitImagePaths(project.images);
+    const images = splitImagePaths(project.images).map(normalizeAssetPath);
 
     if (images.length) {
       return images;
     }
   }
 
-  return project.image ? [project.image] : [];
+  return project.image ? [normalizeAssetPath(project.image)] : [];
 }
 
 function normalizeProject(project) {
@@ -248,7 +268,7 @@ function normalizeProject(project) {
 
   return {
     ...safeProject,
-    image: safeProject.image || images[0] || "",
+    image: normalizeAssetPath(safeProject.image) || images[0] || "",
     images
   };
 }
