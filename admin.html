@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAA Portfolio Admin</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header class="admin-header">
+    <div>
+      <a class="admin-logo" href="index.html">MAA</a>
+      <p>Portfolio Admin</p>
+    </div>
+    <nav class="admin-nav" data-auth-content aria-label="Admin navigation" hidden>
+      <a href="index.html">View Site</a>
+      <a href="#profilePanel">Profile</a>
+      <a href="#projectsPanel">Projects</a>
+      <a href="#toolsPanel">Tools</a>
+      <a href="#socialsPanel">Socials</a>
+      <button class="logout-button" id="logoutButton" type="button">Logout</button>
+    </nav>
+  </header>
+
+  <section class="login-shell" id="loginPanel">
+    <form class="login-card" id="loginForm">
+      <p class="eyebrow">Admin Access</p>
+      <h1>Login Dashboard</h1>
+      <p class="login-note">Ini hanya proteksi ringan untuk local/static site, bukan keamanan production. Tidak menggunakan backend.</p>
+      <label>
+        <span>Password</span>
+        <input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" required>
+      </label>
+      <p class="login-message" id="loginMessage" aria-live="polite"></p>
+      <button class="btn btn-primary" type="submit">Login</button>
+    </form>
+  </section>
+
+  <main class="admin-shell" id="adminDashboard" data-auth-content hidden>
+    <section class="dashboard">
+      <div class="dashboard-copy">
+        <p class="eyebrow">Muhammad Arif Alawi</p>
+        <h1>Portfolio Content Manager</h1>
+        <p>Update profile data, project cards, tools, and social links. Changes are saved to localStorage and used by the main portfolio page.</p>
+        <p class="asset-note">Masukkan file gambar ke folder assets terlebih dahulu, lalu isi path gambarnya di form.</p>
+      </div>
+
+      <div class="action-bar" aria-label="Data actions">
+        <button class="btn btn-primary" id="saveChanges" type="button">Save Changes</button>
+        <button class="btn btn-secondary" id="resetDefault" type="button">Reset to Default</button>
+        <button class="btn btn-secondary" id="exportJson" type="button">Export JSON</button>
+        <button class="btn btn-secondary" id="importJson" type="button">Import JSON</button>
+        <input class="hidden-file" id="importFile" type="file" accept="application/json,.json">
+      </div>
+    </section>
+
+    <p class="status-message" id="statusMessage" aria-live="polite"></p>
+
+    <section class="admin-panel" id="profilePanel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Profile</p>
+          <h2>Edit Profile</h2>
+        </div>
+      </div>
+
+      <div class="editor-layout">
+        <form class="admin-form" id="profileForm">
+          <label>
+            <span>Name</span>
+            <input id="profileName" type="text" placeholder="Muhammad Arif Alawi" required>
+          </label>
+          <label>
+            <span>Title</span>
+            <input id="profileTitle" type="text" placeholder="Hi I am" required>
+          </label>
+          <label>
+            <span>Subtitle</span>
+            <input id="profileSubtitle" type="text" placeholder="Director / Project Manager" required>
+          </label>
+          <label>
+            <span>Hero Photo Path</span>
+            <div class="path-control">
+              <input id="profileHeroPhoto" type="text" placeholder="assets/images/hero-profile.png" required>
+              <button class="btn btn-secondary" id="previewHeroImage" type="button">Preview Image</button>
+            </div>
+          </label>
+          <label>
+            <span>About Photo Path</span>
+            <div class="path-control">
+              <input id="profileAboutPhoto" type="text" placeholder="assets/images/about-profile.png" required>
+              <button class="btn btn-secondary" id="previewAboutImage" type="button">Preview Image</button>
+            </div>
+          </label>
+          <label>
+            <span>CV Link</span>
+            <input id="profileCvLink" type="text" placeholder="assets/CV/cv-muhammad-arif-alawi.pdf" required>
+          </label>
+          <label class="full-span">
+            <span>About Text</span>
+            <textarea id="profileAbout" rows="8" placeholder="Separate paragraphs with blank lines."></textarea>
+          </label>
+        </form>
+
+        <aside class="preview-panel" aria-label="Profile live preview">
+          <p class="preview-label">Live Preview</p>
+          <p class="image-warning" id="profileImageWarning" hidden>Image not found</p>
+          <article class="profile-preview">
+            <div class="profile-preview-photo">
+              <img id="profilePreviewPhoto" alt="">
+            </div>
+            <div>
+              <p id="profilePreviewTitle"></p>
+              <h3 id="profilePreviewName"></h3>
+              <h4 id="profilePreviewSubtitle"></h4>
+              <p id="profilePreviewAbout"></p>
+            </div>
+          </article>
+        </aside>
+      </div>
+    </section>
+
+    <section class="admin-panel" id="projectsPanel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Portfolio</p>
+          <h2>Projects</h2>
+        </div>
+      </div>
+
+      <div class="editor-layout">
+        <form class="admin-form" id="projectForm">
+          <input id="projectIndex" type="hidden" value="">
+          <label>
+            <span>Title</span>
+            <input id="projectTitle" type="text" placeholder="Project title" required>
+          </label>
+          <label>
+            <span>Category</span>
+            <input id="projectCategory" type="text" placeholder="Categories" required>
+          </label>
+          <label class="full-span">
+            <span>Image Paths (one path per line)</span>
+            <div class="path-control">
+              <textarea id="projectImages" rows="4" placeholder="assets/portfolio/sate-1.png&#10;assets/portfolio/sate-2.png&#10;assets/portfolio/sate-3.png"></textarea>
+              <button class="btn btn-secondary" id="previewProjectImage" type="button">Preview Image</button>
+            </div>
+          </label>
+          <label>
+            <span>Tech Stack</span>
+            <input id="projectTechStack" type="text" placeholder="Design, Portfolio">
+          </label>
+          <label>
+            <span>Demo Link</span>
+            <input id="projectDemoLink" type="url" placeholder="https://example.com">
+          </label>
+          <label>
+            <span>Visit Link</span>
+            <input id="projectVisitLink" type="url" placeholder="https://live-site.example.com">
+          </label>
+          <label>
+            <span>GitHub Link</span>
+            <input id="projectGithubLink" type="url" placeholder="https://github.com/...">
+          </label>
+          <label class="full-span">
+            <span>Description</span>
+            <textarea id="projectDescription" rows="4" placeholder="Short project description"></textarea>
+          </label>
+          <label class="check-row">
+            <input id="projectFeatured" type="checkbox">
+            <span>Featured project</span>
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="projectSubmit" type="submit">Add Project</button>
+            <button class="btn btn-secondary" id="projectClear" type="button">Clear Form</button>
+          </div>
+        </form>
+
+        <aside class="preview-panel" aria-label="Project live preview">
+          <p class="preview-label">Live Preview</p>
+          <p class="image-warning" id="projectImageWarning" hidden>Image not found</p>
+          <article class="project-preview">
+            <div class="preview-carousel">
+              <img id="projectPreviewImage" alt="">
+              <button class="carousel-arrow carousel-prev" id="projectPreviewPrev" type="button" aria-label="Previous project image">&lt;</button>
+              <button class="carousel-arrow carousel-next" id="projectPreviewNext" type="button" aria-label="Next project image">&gt;</button>
+              <span class="carousel-indicator" id="projectPreviewIndicator">1 / 1</span>
+            </div>
+            <div class="project-preview-body">
+              <div class="project-preview-meta">
+                <h3 id="projectPreviewTitle"></h3>
+                <span id="projectPreviewCategory"></span>
+              </div>
+              <p id="projectPreviewDescription"></p>
+              <div class="chip-row" id="projectPreviewTechStack"></div>
+              <div class="preview-actions" id="projectPreviewLinks"></div>
+            </div>
+          </article>
+        </aside>
+      </div>
+
+      <div class="item-list" id="projectList" aria-label="Project list"></div>
+    </section>
+
+    <section class="admin-panel" id="toolsPanel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Software</p>
+          <h2>Tools &amp; Icons</h2>
+        </div>
+      </div>
+
+      <div class="editor-layout">
+        <form class="admin-form compact-form" id="toolForm">
+          <input id="toolIndex" type="hidden" value="">
+          <label>
+            <span>Name</span>
+            <input id="toolName" type="text" placeholder="Premiere Pro" required>
+          </label>
+          <label>
+            <span>Icon Path</span>
+            <div class="path-control">
+              <input id="toolIcon" type="text" placeholder="assets/icons/premiere.png" required>
+              <button class="btn btn-secondary" id="previewToolImage" type="button">Preview Image</button>
+            </div>
+          </label>
+          <label>
+            <span>Category</span>
+            <input id="toolCategory" type="text" placeholder="Video Editing" required>
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="toolSubmit" type="submit">Add Tool</button>
+            <button class="btn btn-secondary" id="toolClear" type="button">Clear Form</button>
+          </div>
+        </form>
+
+        <aside class="preview-panel" aria-label="Tool live preview">
+          <p class="preview-label">Live Preview</p>
+          <p class="image-warning" id="toolImageWarning" hidden>Image not found</p>
+          <article class="tool-preview">
+            <img id="toolPreviewIcon" alt="">
+            <h3 id="toolPreviewName"></h3>
+            <p id="toolPreviewCategory"></p>
+          </article>
+        </aside>
+      </div>
+
+      <div class="item-list" id="toolList" aria-label="Tool list"></div>
+    </section>
+
+    <section class="admin-panel" id="socialsPanel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Links</p>
+          <h2>Social Media</h2>
+        </div>
+      </div>
+
+      <div class="editor-layout">
+        <form class="admin-form compact-form" id="socialForm">
+          <input id="socialIndex" type="hidden" value="">
+          <label>
+            <span>Name</span>
+            <input id="socialName" type="text" placeholder="YouTube" required>
+          </label>
+          <label>
+            <span>Icon Path</span>
+            <div class="path-control">
+              <input id="socialIcon" type="text" placeholder="assets/social/youtube.png" required>
+              <button class="btn btn-secondary" id="previewSocialImage" type="button">Preview Image</button>
+            </div>
+          </label>
+          <label>
+            <span>URL</span>
+            <input id="socialUrl" type="url" placeholder="https://example.com" required>
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="socialSubmit" type="submit">Add Social</button>
+            <button class="btn btn-secondary" id="socialClear" type="button">Clear Form</button>
+          </div>
+        </form>
+
+        <aside class="preview-panel" aria-label="Social media live preview">
+          <p class="preview-label">Live Preview</p>
+          <p class="image-warning" id="socialImageWarning" hidden>Image not found</p>
+          <article class="social-preview">
+            <a id="socialPreviewLink" href="#" target="_blank" rel="noopener noreferrer">
+              <img id="socialPreviewIcon" alt="">
+              <span id="socialPreviewName"></span>
+            </a>
+            <p id="socialPreviewUrl"></p>
+          </article>
+        </aside>
+      </div>
+
+      <div class="item-list" id="socialList" aria-label="Social media list"></div>
+    </section>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

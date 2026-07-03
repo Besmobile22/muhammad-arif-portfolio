@@ -1,0 +1,30 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor folders
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies/build caches
+node_modules/
+.cache/
+dist/
+build/
+
+# Environment and local deploy state
+.env
+.env.*
+.wrangler/
+.cloudflare/
+
+# Temporary files
+*.tmp
+*.temp
