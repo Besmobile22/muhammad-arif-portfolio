@@ -297,6 +297,52 @@ a {
   color: var(--danger);
 }
 
+.export-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.export-copy p {
+  max-width: 720px;
+  margin: 0;
+  color: #c8c8c8;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.export-copy .export-note {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.export-status {
+  min-height: 24px;
+  margin: 18px 0 0;
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.export-status.is-error {
+  color: var(--danger);
+}
+
+.btn.is-loading {
+  cursor: wait;
+  opacity: 0.74;
+  transform: none;
+}
+
 .admin-panel {
   padding: 28px;
   margin: 24px 0;
@@ -785,6 +831,14 @@ a {
     max-width: none;
   }
 
+  .export-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .export-actions {
+    justify-content: flex-start;
+  }
+
   .admin-form,
   .compact-form,
   .editor-layout {
@@ -830,6 +884,7 @@ a {
 
   .item-actions .btn,
   .action-bar .btn,
+  .export-actions .btn,
   .form-actions .btn {
     flex: 1;
   }

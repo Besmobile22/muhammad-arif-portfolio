@@ -18,6 +18,9 @@ const elements = {
   exportJson: document.querySelector("#exportJson"),
   importJson: document.querySelector("#importJson"),
   importFile: document.querySelector("#importFile"),
+  exportPdf: document.querySelector("#exportPdf"),
+  exportPpt: document.querySelector("#exportPpt"),
+  exportStatus: document.querySelector("#exportStatus"),
   previewHeroImage: document.querySelector("#previewHeroImage"),
   previewAboutImage: document.querySelector("#previewAboutImage"),
   previewProjectImage: document.querySelector("#previewProjectImage"),
@@ -773,6 +776,554 @@ function importJson(file) {
   reader.readAsText(file);
 }
 
+const EXPORT_FILE_BASE = "Muhammad_Arif_Alawi_Portfolio";
+const EXPORT_ACCENT = "#ff7a00";
+const EXPORT_DARK = "#171717";
+const EXPORT_PANEL = "#252525";
+const EXPORT_TEXT = "#f2f2f2";
+const EXPORT_MUTED = "#b8b8b8";
+const EXPORT_PORTFOLIO_URL = "https://muhammad-arif-portfolio.pages.dev";
+
+function getExportData() {
+  try {
+    const storedData = localStorage.getItem(STORAGE_KEY);
+
+    if (storedData) {
+      return normalizeData(JSON.parse(storedData));
+    }
+  } catch (error) {
+    return normalizeData(getDefaultData());
+  }
+
+  return normalizeData(getDefaultData());
+}
+
+function getExportPortfolioUrl() {
+  if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+    return `${window.location.origin}/index.html`;
+  }
+
+  return EXPORT_PORTFOLIO_URL;
+}
+
+function setExportStatus(message, isError = false) {
+  if (!elements.exportStatus) {
+    return;
+  }
+
+  elements.exportStatus.textContent = message;
+  elements.exportStatus.classList.toggle("is-error", isError);
+}
+
+function setExportLoading(activeButton, isLoading, label) {
+  [elements.exportPdf, elements.exportPpt].forEach((button) => {
+    if (!button) {
+      return;
+    }
+
+    button.disabled = isLoading;
+    button.classList.toggle("is-loading", isLoading && button === activeButton);
+  });
+
+  if (activeButton && label) {
+    activeButton.dataset.defaultText = activeButton.dataset.defaultText || activeButton.textContent;
+    activeButton.textContent = isLoading ? label : activeButton.dataset.defaultText;
+  }
+}
+
+function getAboutText(profile) {
+  const about = profile && profile.about;
+
+  if (Array.isArray(about)) {
+    return about.filter(Boolean).join("\n\n");
+  }
+
+  return about || "";
+}
+
+function getProjectRole(project) {
+  return project.role || project.position || project.category || "Portfolio Project";
+}
+
+function getProjectLinks(project) {
+  return [
+    { label: "Demo", url: project.demoLink },
+    { label: "Visit", url: project.visitLink },
+    { label: "GitHub", url: project.githubLink }
+  ].filter((link) => link.url);
+}
+
+function getFirstProjectImage(project) {
+  const images = getProjectImages(project);
+  return images[0] || project.image || "";
+}
+
+function findProject(projects, patterns) {
+  return projects.find((project) => {
+    const searchable = `${project.title || ""} ${project.category || ""} ${project.description || ""}`.toLowerCase();
+    return patterns.some((pattern) => searchable.includes(pattern));
+  });
+}
+
+function createExportPlaceholder(label = "Image not found") {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = 1200;
+  canvas.height = 675;
+  context.fillStyle = "#303030";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = EXPORT_ACCENT;
+  context.lineWidth = 8;
+  context.setLineDash([24, 18]);
+  context.strokeRect(110, 92, 980, 490);
+  context.setLineDash([]);
+  context.fillStyle = EXPORT_ACCENT;
+  context.font = "700 54px Arial";
+  context.textAlign = "center";
+  context.fillText(label, canvas.width / 2, 360);
+
+  return {
+    dataUrl: canvas.toDataURL("image/png"),
+    format: "PNG",
+    width: canvas.width,
+    height: canvas.height
+  };
+}
+
+function loadExportImage(src, label = "Image not found") {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve(createExportPlaceholder(label));
+      return;
+    }
+
+    const image = new Image();
+    const timeout = window.setTimeout(() => {
+      resolve(createExportPlaceholder(label));
+    }, 7000);
+
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      window.clearTimeout(timeout);
+
+      try {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        const maxWidth = 1400;
+        const scale = Math.min(1, maxWidth / image.naturalWidth);
+
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        context.fillStyle = EXPORT_PANEL;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        resolve({
+          dataUrl: canvas.toDataURL("image/jpeg", 0.86),
+          format: "JPEG",
+          width: canvas.width,
+          height: canvas.height
+        });
+      } catch (error) {
+        resolve(createExportPlaceholder(label));
+      }
+    };
+
+    image.onerror = () => {
+      window.clearTimeout(timeout);
+      resolve(createExportPlaceholder(label));
+    };
+
+    image.src = normalizeAssetPath(src);
+  });
+}
+
+function addPdfText(pdf, text, x, y, maxWidth, options = {}) {
+  const size = options.size || 10;
+  const lineHeight = options.lineHeight || size * 0.43;
+  const color = options.color || EXPORT_TEXT;
+  const style = options.style || "normal";
+  const lines = pdf.splitTextToSize(String(text || ""), maxWidth);
+
+  pdf.setFont("helvetica", style);
+  pdf.setFontSize(size);
+  pdf.setTextColor(color);
+  pdf.text(lines, x, y);
+
+  return y + (lines.length * lineHeight);
+}
+
+function addPdfImageBox(pdf, image, x, y, width, height) {
+  const imageRatio = image.width / image.height;
+  const boxRatio = width / height;
+  let drawWidth = width;
+  let drawHeight = height;
+
+  if (imageRatio > boxRatio) {
+    drawHeight = width / imageRatio;
+  } else {
+    drawWidth = height * imageRatio;
+  }
+
+  const drawX = x + ((width - drawWidth) / 2);
+  const drawY = y + ((height - drawHeight) / 2);
+
+  pdf.setFillColor(EXPORT_PANEL);
+  pdf.roundedRect(x, y, width, height, 2, 2, "F");
+  pdf.addImage(image.dataUrl, image.format, drawX, drawY, drawWidth, drawHeight);
+}
+
+function addPdfShell(pdf, title, pageNumber) {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const portfolioUrl = getExportPortfolioUrl();
+
+  pdf.setFillColor(EXPORT_DARK);
+  pdf.rect(0, 0, pageWidth, pageHeight, "F");
+  pdf.setDrawColor(EXPORT_ACCENT);
+  pdf.setLineWidth(0.7);
+  pdf.line(14, 18, pageWidth - 14, 18);
+  pdf.setTextColor(EXPORT_MUTED);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  pdf.text(title, 14, 12);
+  pdf.text(`Muhammad Arif Alawi | ${portfolioUrl}`, 14, pageHeight - 9);
+  pdf.text(String(pageNumber), pageWidth - 18, pageHeight - 9);
+}
+
+function addPdfSectionTitle(pdf, title, y) {
+  pdf.setTextColor(EXPORT_ACCENT);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(15);
+  pdf.text(title, 14, y);
+  return y + 8;
+}
+
+function addPdfTags(pdf, tags, x, y, maxWidth) {
+  let cursorX = x;
+  let cursorY = y;
+
+  tags.slice(0, 10).forEach((tag) => {
+    const label = String(tag || "").trim();
+
+    if (!label) {
+      return;
+    }
+
+    const width = Math.min(maxWidth, pdf.getTextWidth(label) + 8);
+
+    if (cursorX + width > x + maxWidth) {
+      cursorX = x;
+      cursorY += 8;
+    }
+
+    pdf.setFillColor("#3b2d20");
+    pdf.roundedRect(cursorX, cursorY - 4.6, width, 6.4, 2.6, 2.6, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7.2);
+    pdf.setTextColor(EXPORT_ACCENT);
+    pdf.text(label, cursorX + 4, cursorY);
+    cursorX += width + 4;
+  });
+
+  return cursorY + 5;
+}
+
+async function exportPortfolioPdf() {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    throw new Error("jsPDF library is not loaded.");
+  }
+
+  const { jsPDF } = window.jspdf;
+  const data = getExportData();
+  const profile = data.profile || {};
+  const projects = Array.isArray(data.projects) ? data.projects : [];
+  const featuredProjects = projects.filter((project) => project.featured);
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 14;
+  let pageNumber = 1;
+  let y = 26;
+
+  const profilePhoto = profile.photo || {};
+  const coverPhoto = await loadExportImage(
+    typeof profilePhoto === "string" ? profilePhoto : (profilePhoto.about || profilePhoto.hero),
+    "Profile photo"
+  );
+
+  addPdfShell(pdf, "Portfolio", pageNumber);
+  pdf.setFillColor(EXPORT_ACCENT);
+  pdf.rect(0, 0, 7, pageHeight, "F");
+  addPdfImageBox(pdf, coverPhoto, 146, 28, 42, 42);
+  pdf.setTextColor(EXPORT_ACCENT);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(13);
+  pdf.text(profile.title || "Hi I am", 20, 52);
+  pdf.setTextColor(EXPORT_TEXT);
+  pdf.setFontSize(29);
+  pdf.text(profile.name || "Muhammad Arif Alawi", 20, 66, { maxWidth: 116 });
+  pdf.setTextColor(EXPORT_ACCENT);
+  pdf.setFontSize(17);
+  pdf.text(profile.subtitle || "Director / Project Manager", 20, 82, { maxWidth: 150 });
+  y = addPdfText(pdf, getAboutText(profile), 20, 108, 168, { size: 10.5, color: "#d8d8d8", lineHeight: 5.2 });
+  addPdfTags(pdf, (data.tools || []).map((tool) => tool.name), 20, y + 8, 168);
+
+  pdf.addPage();
+  pageNumber += 1;
+  addPdfShell(pdf, "Portfolio Overview", pageNumber);
+  y = addPdfSectionTitle(pdf, "About Me", 32);
+  y = addPdfText(pdf, getAboutText(profile), margin, y, 182, { size: 9.5, color: "#d8d8d8", lineHeight: 4.8 }) + 8;
+
+  y = addPdfSectionTitle(pdf, "Tools & Skills", y);
+  y = addPdfTags(pdf, (data.tools || []).map((tool) => tool.name), margin, y, 182) + 8;
+
+  if (featuredProjects.length) {
+    y = addPdfSectionTitle(pdf, "Featured Projects", y);
+    featuredProjects.slice(0, 3).forEach((project) => {
+      y = addPdfText(pdf, `${project.title || "Featured Project"} - ${getProjectRole(project)}`, margin, y, 182, {
+        size: 9.8,
+        style: "bold",
+        color: EXPORT_TEXT,
+        lineHeight: 4.7
+      }) + 2;
+    });
+  }
+
+  pdf.addPage();
+  pageNumber += 1;
+  addPdfShell(pdf, "Portfolio Projects", pageNumber);
+  y = addPdfSectionTitle(pdf, "All Portfolio Projects", 32);
+
+  for (const project of projects) {
+    if (y > pageHeight - 78) {
+      pdf.addPage();
+      pageNumber += 1;
+      addPdfShell(pdf, "Portfolio Projects", pageNumber);
+      y = 32;
+    }
+
+    const projectImage = await loadExportImage(getFirstProjectImage(project), project.title || "Project image");
+    const cardY = y;
+
+    pdf.setFillColor(EXPORT_PANEL);
+    pdf.roundedRect(margin, cardY - 6, pageWidth - (margin * 2), 58, 3, 3, "F");
+    addPdfImageBox(pdf, projectImage, margin + 4, cardY - 2, 46, 31);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.setTextColor(EXPORT_TEXT);
+    pdf.text(project.title || "Untitled Project", margin + 55, cardY + 2, { maxWidth: 124 });
+
+    pdf.setFontSize(8.2);
+    pdf.setTextColor(EXPORT_ACCENT);
+    pdf.text(`Role: ${getProjectRole(project)}`, margin + 55, cardY + 9, { maxWidth: 124 });
+
+    const descriptionLines = pdf.splitTextToSize(project.description || "", 124).slice(0, 4);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.8);
+    pdf.setTextColor(EXPORT_MUTED);
+    pdf.text(descriptionLines, margin + 55, cardY + 16);
+
+    const tagY = addPdfTags(pdf, Array.isArray(project.techStack) ? project.techStack : splitList(project.techStack || ""), margin + 55, cardY + 36, 124);
+    const links = getProjectLinks(project);
+
+    if (links.length) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7.4);
+      pdf.setTextColor(EXPORT_TEXT);
+      pdf.text(links.map((link) => `${link.label}: ${link.url}`).join("  |  "), margin + 55, Math.min(tagY + 1, cardY + 49), { maxWidth: 124 });
+    }
+
+    y += 66;
+  }
+
+  if (y > pageHeight - 55) {
+    pdf.addPage();
+    pageNumber += 1;
+    addPdfShell(pdf, "Contact", pageNumber);
+    y = 32;
+  }
+
+  y = addPdfSectionTitle(pdf, "Contact & Social Media", y + 3);
+  y = addPdfText(pdf, `Portfolio: ${getExportPortfolioUrl()}`, margin, y, 182, { size: 9, color: EXPORT_TEXT, lineHeight: 4.5 });
+  (data.socials || []).forEach((social) => {
+    y = addPdfText(pdf, `${social.name}: ${social.url}`, margin, y + 2, 182, { size: 8.6, color: EXPORT_MUTED, lineHeight: 4.5 });
+  });
+
+  pdf.save(`${EXPORT_FILE_BASE}.pdf`);
+}
+
+function addPptBackground(pptxDeck, slide, title) {
+  slide.background = { color: "171717" };
+  slide.addShape(pptxDeck.ShapeType.rect, { x: 0, y: 0, w: 0.1, h: 7.5, fill: { color: "FF7A00" }, line: { color: "FF7A00" } });
+  slide.addText("MAA Portfolio", { x: 0.45, y: 0.22, w: 3, h: 0.2, fontSize: 7.5, bold: true, color: "B8B8B8" });
+
+  if (title) {
+    slide.addText(title, { x: 0.55, y: 0.55, w: 7.2, h: 0.38, fontSize: 20, bold: true, color: "FF7A00" });
+  }
+}
+
+function addPptFooter(slide) {
+  slide.addText(`Muhammad Arif Alawi | ${getExportPortfolioUrl()}`, {
+    x: 0.55,
+    y: 7.14,
+    w: 8.2,
+    h: 0.22,
+    fontSize: 7,
+    color: "B8B8B8"
+  });
+}
+
+function pptTagText(items) {
+  return items.filter(Boolean).slice(0, 18).join("   /   ");
+}
+
+function projectSummary(project) {
+  return [
+    `Role: ${getProjectRole(project)}`,
+    project.description || "",
+    `Tech: ${(Array.isArray(project.techStack) ? project.techStack : splitList(project.techStack || "")).join(", ")}`
+  ].filter(Boolean).join("\n\n");
+}
+
+async function addProjectPptSlide(pptxDeck, title, project, fallbackTitle) {
+  const slide = pptxDeck.addSlide();
+  const safeProject = project || {};
+  const image = await loadExportImage(getFirstProjectImage(safeProject), safeProject.title || fallbackTitle);
+
+  addPptBackground(pptxDeck, slide, title);
+  slide.addText(safeProject.title || fallbackTitle, { x: 0.55, y: 1.05, w: 6.2, h: 0.45, fontSize: 22, bold: true, color: "F2F2F2", fit: "shrink" });
+  slide.addText(safeProject.category || "Portfolio Project", { x: 0.55, y: 1.55, w: 6.2, h: 0.3, fontSize: 11, bold: true, color: "FF7A00" });
+  slide.addText(projectSummary(safeProject), { x: 0.55, y: 2.05, w: 6.15, h: 3.65, fontSize: 10, color: "D8D8D8", breakLine: false, fit: "shrink" });
+
+  const links = getProjectLinks(safeProject).map((link) => `${link.label}: ${link.url}`).join("\n");
+  if (links) {
+    slide.addText(links, { x: 0.55, y: 5.95, w: 6.15, h: 0.62, fontSize: 8, bold: true, color: "F2F2F2", fit: "shrink" });
+  }
+
+  slide.addShape(pptxDeck.ShapeType.roundRect, { x: 7.05, y: 1.18, w: 5.65, h: 3.78, rectRadius: 0.12, fill: { color: "252525" }, line: { color: "333333" } });
+  slide.addImage({ data: image.dataUrl, x: 7.18, y: 1.31, w: 5.39, h: 3.52 });
+  addPptFooter(slide);
+}
+
+async function exportPortfolioPpt() {
+  const PptxConstructor = window.PptxGenJS || window.pptxgen;
+
+  if (!PptxConstructor) {
+    throw new Error("PptxGenJS library is not loaded.");
+  }
+
+  const data = getExportData();
+  const profile = data.profile || {};
+  const tools = Array.isArray(data.tools) ? data.tools : [];
+  const projects = Array.isArray(data.projects) ? data.projects : [];
+  const sateProject = findProject(projects, ["sate", "vr", "unity"]) || projects.find((project) => project.featured) || projects[0];
+  const researchProject = findProject(projects, ["ieee", "research", "machine learning"]);
+  const webProject = findProject(projects, ["portfolio website", "web development"]);
+  const creativeProjects = projects.filter((project) => {
+    const text = `${project.title || ""} ${project.category || ""}`.toLowerCase();
+    return ["film", "video", "wedding", "lidm", "polri", "metafora", "secret"].some((word) => text.includes(word));
+  }).slice(0, 4);
+  const profilePhoto = profile.photo || {};
+  const coverPhoto = await loadExportImage(
+    typeof profilePhoto === "string" ? profilePhoto : (profilePhoto.hero || profilePhoto.about),
+    "Profile photo"
+  );
+  const pptxDeck = new PptxConstructor();
+
+  pptxDeck.layout = "LAYOUT_WIDE";
+  pptxDeck.author = profile.name || "Muhammad Arif Alawi";
+  pptxDeck.subject = "Portfolio for internship applications";
+  pptxDeck.title = `${profile.name || "Muhammad Arif Alawi"} Portfolio`;
+  pptxDeck.company = "MAA Portfolio";
+  pptxDeck.lang = "en-US";
+  pptxDeck.theme = {
+    headFontFace: "Arial",
+    bodyFontFace: "Arial",
+    lang: "en-US"
+  };
+
+  let slide = pptxDeck.addSlide();
+  addPptBackground(pptxDeck, slide, "");
+  slide.addText(profile.title || "Hi I am", { x: 0.65, y: 1.65, w: 5.5, h: 0.28, fontSize: 12, bold: true, color: "FF7A00" });
+  slide.addText(profile.name || "Muhammad Arif Alawi", { x: 0.65, y: 2.0, w: 6.5, h: 0.75, fontSize: 30, bold: true, color: "F2F2F2", fit: "shrink" });
+  slide.addText(profile.subtitle || "Director / Project Manager", { x: 0.65, y: 2.88, w: 6, h: 0.35, fontSize: 16, bold: true, color: "FF7A00" });
+  slide.addText("Portfolio for internship applications", { x: 0.65, y: 3.45, w: 5.5, h: 0.32, fontSize: 11, color: "D8D8D8" });
+  slide.addShape(pptxDeck.ShapeType.roundRect, { x: 8.25, y: 1.15, w: 3.35, h: 4.75, rectRadius: 0.15, fill: { color: "252525" }, line: { color: "333333" } });
+  slide.addImage({ data: coverPhoto.dataUrl, x: 8.42, y: 1.35, w: 3.0, h: 4.35 });
+  addPptFooter(slide);
+
+  slide = pptxDeck.addSlide();
+  addPptBackground(pptxDeck, slide, "About Me");
+  slide.addText(getAboutText(profile), { x: 0.65, y: 1.25, w: 11.7, h: 4.95, fontSize: 13, color: "D8D8D8", fit: "shrink", breakLine: false });
+  addPptFooter(slide);
+
+  slide = pptxDeck.addSlide();
+  addPptBackground(pptxDeck, slide, "Skills & Tools");
+  slide.addText(pptTagText(tools.map((tool) => tool.name)), { x: 0.65, y: 1.25, w: 11.8, h: 2.1, fontSize: 16, bold: true, color: "F2F2F2", fit: "shrink" });
+  slide.addText(tools.map((tool) => `${tool.name} - ${tool.category}`).join("\n"), { x: 0.75, y: 3.65, w: 11.4, h: 2.75, fontSize: 10, color: "D8D8D8", fit: "shrink" });
+  addPptFooter(slide);
+
+  await addProjectPptSlide(pptxDeck, "Featured Project - Sate In Bandung VR", sateProject, "Sate In Bandung VR");
+  await addProjectPptSlide(pptxDeck, "Research Publication - IEEE / Machine Learning", researchProject, "IEEE Machine Learning Research");
+
+  slide = pptxDeck.addSlide();
+  addPptBackground(pptxDeck, slide, "Creative & Film Projects");
+  for (const [index, project] of creativeProjects.entries()) {
+    const row = Math.floor(index / 2);
+    const col = index % 2;
+    const x = 0.65 + (col * 6.25);
+    const y = 1.18 + (row * 2.55);
+    const image = await loadExportImage(getFirstProjectImage(project), project.title);
+
+    slide.addShape(pptxDeck.ShapeType.roundRect, { x, y, w: 5.75, h: 2.14, rectRadius: 0.12, fill: { color: "252525" }, line: { color: "333333" } });
+    slide.addImage({ data: image.dataUrl, x: x + 0.12, y: y + 0.15, w: 1.9, h: 1.3 });
+    slide.addText(project.title || "Creative Project", { x: x + 2.18, y: y + 0.18, w: 3.25, h: 0.38, fontSize: 11, bold: true, color: "F2F2F2", fit: "shrink" });
+    slide.addText(project.category || "Creative Project", { x: x + 2.18, y: y + 0.62, w: 3.25, h: 0.22, fontSize: 7.5, bold: true, color: "FF7A00", fit: "shrink" });
+    slide.addText(project.description || "", { x: x + 2.18, y: y + 0.92, w: 3.3, h: 0.95, fontSize: 7.3, color: "D8D8D8", fit: "shrink" });
+  }
+  addPptFooter(slide);
+
+  await addProjectPptSlide(pptxDeck, "Web Development / Portfolio Website", webProject, "Portfolio Website");
+
+  slide = pptxDeck.addSlide();
+  addPptBackground(pptxDeck, slide, "Contact");
+  slide.addText(profile.name || "Muhammad Arif Alawi", { x: 0.65, y: 1.35, w: 7.8, h: 0.52, fontSize: 24, bold: true, color: "F2F2F2" });
+  slide.addText(profile.subtitle || "Director / Project Manager", { x: 0.65, y: 2.0, w: 7.8, h: 0.32, fontSize: 13, bold: true, color: "FF7A00" });
+  slide.addText(
+    [`Portfolio: ${getExportPortfolioUrl()}`, ...(data.socials || []).map((social) => `${social.name}: ${social.url}`)].join("\n\n"),
+    { x: 0.65, y: 2.75, w: 10.6, h: 3.2, fontSize: 12, color: "D8D8D8", fit: "shrink" }
+  );
+  addPptFooter(slide);
+
+  await pptxDeck.writeFile({ fileName: `${EXPORT_FILE_BASE}.pptx` });
+}
+
+async function handleExport(type) {
+  const isPdf = type === "pdf";
+  const button = isPdf ? elements.exportPdf : elements.exportPpt;
+  const loadingLabel = isPdf ? "Creating PDF..." : "Creating PPT...";
+
+  setExportLoading(button, true, loadingLabel);
+  setExportStatus(loadingLabel);
+
+  try {
+    if (isPdf) {
+      await exportPortfolioPdf();
+      setExportStatus("PDF exported successfully.");
+    } else {
+      await exportPortfolioPpt();
+      setExportStatus("PPT exported successfully.");
+    }
+  } catch (error) {
+    setExportStatus(`Failed to export ${isPdf ? "PDF" : "PPT"}. Please try again.`, true);
+  } finally {
+    setExportLoading(button, false);
+  }
+}
+
 elements.saveChanges.addEventListener("click", () => {
   saveToStorage();
 });
@@ -793,6 +1344,14 @@ elements.resetDefault.addEventListener("click", () => {
 });
 
 elements.exportJson.addEventListener("click", exportJson);
+
+elements.exportPdf.addEventListener("click", () => {
+  handleExport("pdf");
+});
+
+elements.exportPpt.addEventListener("click", () => {
+  handleExport("ppt");
+});
 
 elements.importJson.addEventListener("click", () => {
   elements.importFile.click();
