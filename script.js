@@ -180,27 +180,46 @@ function renderSocialLinks(socials) {
   });
 }
 
+function createToolCard(tool) {
+  const card = document.createElement("div");
+  const icon = document.createElement("img");
+  const label = document.createElement("span");
+
+  card.className = "tool-card";
+  card.dataset.category = tool.category || "";
+
+  icon.src = normalizeAssetPath(tool.icon) || "";
+  icon.alt = tool.name || "";
+
+  label.textContent = tool.name || "";
+
+  card.appendChild(icon);
+  card.appendChild(label);
+
+  return card;
+}
+
 function renderTools(tools) {
   document.querySelectorAll("[data-tools]").forEach((container) => {
+    const track = document.createElement("div");
+    const primaryGroup = document.createElement("div");
+    const duplicateGroup = document.createElement("div");
+
     container.innerHTML = "";
+    container.classList.add("tools-marquee");
+    track.className = "tools-track";
+    primaryGroup.className = "tools-group";
+    duplicateGroup.className = "tools-group";
+    duplicateGroup.setAttribute("aria-hidden", "true");
 
     tools.forEach((tool) => {
-      const card = document.createElement("div");
-      const icon = document.createElement("img");
-      const label = document.createElement("span");
-
-      card.className = "tool-card";
-      card.dataset.category = tool.category || "";
-
-      icon.src = normalizeAssetPath(tool.icon) || "";
-      icon.alt = tool.name || "";
-
-      label.textContent = tool.name || "";
-
-      card.appendChild(icon);
-      card.appendChild(label);
-      container.appendChild(card);
+      primaryGroup.appendChild(createToolCard(tool));
+      duplicateGroup.appendChild(createToolCard(tool));
     });
+
+    track.appendChild(primaryGroup);
+    track.appendChild(duplicateGroup);
+    container.appendChild(track);
   });
 }
 
@@ -392,9 +411,74 @@ function attachToolImageFallbacks() {
   });
 }
 
+function initCursorGlow() {
+  const hasFinePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (!hasFinePointer || prefersReducedMotion) {
+    return;
+  }
+
+  let isTicking = false;
+  let cursorX = window.innerWidth / 2;
+  let cursorY = window.innerHeight / 2;
+
+  window.addEventListener("pointermove", (event) => {
+    cursorX = event.clientX;
+    cursorY = event.clientY;
+
+    if (isTicking) {
+      return;
+    }
+
+    isTicking = true;
+    window.requestAnimationFrame(() => {
+      document.documentElement.style.setProperty("--cursor-x", `${cursorX}px`);
+      document.documentElement.style.setProperty("--cursor-y", `${cursorY}px`);
+      document.body.classList.add("cursor-ready");
+      isTicking = false;
+    });
+  }, { passive: true });
+
+  window.addEventListener("pointerleave", () => {
+    document.body.classList.remove("cursor-ready");
+  });
+}
+
+function initScrollReveal() {
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const revealTargets = document.querySelectorAll(".hero, .services, .about, .tools, .portfolio, .contact");
+
+  if (prefersReducedMotion || !("IntersectionObserver" in window)) {
+    revealTargets.forEach((target) => target.classList.add("is-visible"));
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) {
+        return;
+      }
+
+      entry.target.classList.add("is-visible");
+      observer.unobserve(entry.target);
+    });
+  }, {
+    threshold: 0.16,
+    rootMargin: "0px 0px -10% 0px"
+  });
+
+  revealTargets.forEach((target) => {
+    target.classList.add("reveal");
+    observer.observe(target);
+  });
+}
+
 renderPortfolioData(getActivePortfolioData());
 attachPortfolioImageFallbacks();
 attachToolImageFallbacks();
+initCursorGlow();
+initScrollReveal();
 
 window.addEventListener("storage", (event) => {
   if (event.key === "portfolioData") {
