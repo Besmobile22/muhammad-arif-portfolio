@@ -891,19 +891,77 @@ function createExportPlaceholder(label = "Image not found") {
   };
 }
 
-function loadExportImage(src, label = "Image not found") {
-  return new Promise((resolve) => {
-    if (!src) {
-      resolve(createExportPlaceholder(label));
-      return;
-    }
+function resolveExportImageUrl(imagePath) {
+  const normalized = normalizeAssetPath(imagePath);
 
+  if (!normalized) {
+    return "";
+  }
+
+  if (/^(data:|blob:|https?:\/\/)/i.test(normalized)) {
+    return normalized;
+  }
+
+  if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+    return new URL(normalized.replace(/^\/+/, ""), `${window.location.origin}/`).href;
+  }
+
+  return normalized;
+}
+
+function getImageFormatFromType(type, fallback = "JPEG") {
+  if (/png/i.test(type)) {
+    return "PNG";
+  }
+
+  if (/jpe?g/i.test(type)) {
+    return "JPEG";
+  }
+
+  return fallback;
+}
+
+function readBlobAsDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("Failed to read image blob."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function getDataUrlImageSize(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => {
+      resolve({
+        width: image.naturalWidth || image.width || 1,
+        height: image.naturalHeight || image.height || 1
+      });
+    };
+    image.onerror = () => reject(new Error("Failed to inspect image size."));
+    image.src = dataUrl;
+  });
+}
+
+function canvasImageToBase64(src, label, normalizedPath, resolvedUrl) {
+  return new Promise((resolve) => {
     const image = new Image();
     const timeout = window.setTimeout(() => {
-      resolve(createExportPlaceholder(label));
+      console.warn(`[Export] Failed to load image with canvas: ${label}`, normalizedPath || src);
+      resolve({
+        ...createExportPlaceholder(label),
+        path: normalizedPath,
+        isPlaceholder: true
+      });
     }, 7000);
 
-    image.crossOrigin = "anonymous";
+    if (/^https?:\/\//i.test(resolvedUrl)) {
+      image.crossOrigin = "anonymous";
+    }
+
     image.onload = () => {
       window.clearTimeout(timeout);
 
@@ -919,24 +977,100 @@ function loadExportImage(src, label = "Image not found") {
         context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
+        console.log(`[Export] Loaded image with canvas: ${label}`, normalizedPath);
         resolve({
           dataUrl: canvas.toDataURL("image/jpeg", 0.86),
           format: "JPEG",
           width: canvas.width,
-          height: canvas.height
+          height: canvas.height,
+          path: normalizedPath,
+          isPlaceholder: false
         });
       } catch (error) {
-        resolve(createExportPlaceholder(label));
+        console.warn(`[Export] Canvas conversion failed: ${label}`, normalizedPath, error);
+        resolve({
+          ...createExportPlaceholder(label),
+          path: normalizedPath,
+          isPlaceholder: true
+        });
       }
     };
 
     image.onerror = () => {
       window.clearTimeout(timeout);
-      resolve(createExportPlaceholder(label));
+      console.warn(`[Export] Failed to load image with canvas: ${label}`, normalizedPath);
+      resolve({
+        ...createExportPlaceholder(label),
+        path: normalizedPath,
+        isPlaceholder: true
+      });
     };
 
-    image.src = normalizeAssetPath(src);
+    image.src = resolvedUrl;
   });
+}
+
+async function loadImageAsBase64(imagePath, label = "Image not found") {
+  const normalizedPath = normalizeAssetPath(imagePath);
+  const resolvedUrl = resolveExportImageUrl(normalizedPath);
+
+  console.log(`[Export] Image path for ${label}:`, normalizedPath || "(empty)");
+
+  if (!normalizedPath || !resolvedUrl) {
+    console.warn(`[Export] Missing image path for ${label}. Using placeholder.`);
+    return {
+      ...createExportPlaceholder(label),
+      path: normalizedPath,
+      isPlaceholder: true
+    };
+  }
+
+  try {
+    const response = await fetch(resolvedUrl, { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const blob = await response.blob();
+
+    if (!blob.type.startsWith("image/")) {
+      throw new Error(`Invalid image type: ${blob.type || "unknown"}`);
+    }
+
+    const dataUrl = await readBlobAsDataUrl(blob);
+    const size = await getDataUrlImageSize(dataUrl);
+
+    console.log(`[Export] Loaded image with fetch: ${label}`, normalizedPath);
+    return {
+      dataUrl,
+      format: getImageFormatFromType(blob.type),
+      width: size.width,
+      height: size.height,
+      path: normalizedPath,
+      isPlaceholder: false
+    };
+  } catch (error) {
+    console.warn(`[Export] Fetch image failed for ${label}:`, normalizedPath, error);
+    return canvasImageToBase64(imagePath, label, normalizedPath, resolvedUrl);
+  }
+}
+
+function loadExportImage(src, label = "Image not found") {
+  return loadImageAsBase64(src, label);
+}
+
+function reportPdfImageResult(image, label, projectTitle = "") {
+  if (image && !image.isPlaceholder) {
+    console.log(`[Export PDF] Image inserted: ${label}`, image.path || "");
+    return;
+  }
+
+  if (projectTitle) {
+    console.warn(`[Export PDF] Project image failed: ${projectTitle}`, image ? image.path : "");
+  } else {
+    console.warn(`[Export PDF] Image failed: ${label}`, image ? image.path : "");
+  }
 }
 
 function addPdfText(pdf, text, x, y, maxWidth, options = {}) {
@@ -1049,13 +1183,14 @@ async function exportPortfolioPdf() {
 
   const profilePhoto = profile.photo || {};
   const coverPhoto = await loadExportImage(
-    typeof profilePhoto === "string" ? profilePhoto : (profilePhoto.about || profilePhoto.hero),
+    typeof profilePhoto === "string" ? profilePhoto : (profilePhoto.hero || profilePhoto.about),
     "Profile photo"
   );
 
   addPdfShell(pdf, "Portfolio", pageNumber);
   pdf.setFillColor(EXPORT_ACCENT);
   pdf.rect(0, 0, 7, pageHeight, "F");
+  reportPdfImageResult(coverPhoto, "Profile photo");
   addPdfImageBox(pdf, coverPhoto, 146, 28, 42, 42);
   pdf.setTextColor(EXPORT_ACCENT);
   pdf.setFont("helvetica", "bold");
@@ -1109,6 +1244,7 @@ async function exportPortfolioPdf() {
 
     pdf.setFillColor(EXPORT_PANEL);
     pdf.roundedRect(margin, cardY - 6, pageWidth - (margin * 2), 58, 3, 3, "F");
+    reportPdfImageResult(projectImage, "Project image", project.title || `Project ${projects.indexOf(project) + 1}`);
     addPdfImageBox(pdf, projectImage, margin + 4, cardY - 2, 46, 31);
 
     pdf.setFont("helvetica", "bold");
