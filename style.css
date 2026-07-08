@@ -1136,6 +1136,15 @@ textarea {
   }
 }
 
+@media (max-width: 767px) {
+  .portfolio.reveal,
+  .portfolio.reveal.is-visible {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
 @media (hover: none), (pointer: coarse), (max-width: 980px) {
   .cursor-glow {
     display: none;

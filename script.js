@@ -340,6 +340,8 @@ function renderProjects(projects) {
       card.appendChild(body);
       container.appendChild(card);
     });
+
+    console.info("[Portfolio] Rendered projects:", container.querySelectorAll(".portfolio-card").length, "viewport:", window.innerWidth);
   });
 }
 
@@ -447,9 +449,10 @@ function initCursorGlow() {
 
 function initScrollReveal() {
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
   const revealTargets = document.querySelectorAll(".hero, .services, .about, .tools, .portfolio, .contact");
 
-  if (prefersReducedMotion || !("IntersectionObserver" in window)) {
+  if (prefersReducedMotion || isMobileViewport || !("IntersectionObserver" in window)) {
     revealTargets.forEach((target) => target.classList.add("is-visible"));
     return;
   }
