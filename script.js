@@ -8,6 +8,8 @@ const sendButton = contactForm ? contactForm.querySelector(".btn-send") : null;
 const EMAILJS_SERVICE_ID = "Email.Lamaran22";
 const EMAILJS_TEMPLATE_ID = "template_xq4897i";
 const EMAILJS_PUBLIC_KEY = "D7-cVupqyOWjNBSkZ";
+const GLOBAL_DATA_URL = "portfolioData.json";
+let activeDataSource = "default";
 const PLACEHOLDER_IMAGE = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420">
   <rect width="640" height="420" fill="#303030"/>
@@ -81,6 +83,61 @@ function getActivePortfolioData() {
       projects: Array.isArray(defaultData.projects) ? defaultData.projects.map(normalizeProject) : []
     };
   }
+}
+
+async function fetchGlobalPortfolioData() {
+  if (!(window.location.protocol === "http:" || window.location.protocol === "https:")) {
+    return null;
+  }
+
+  try {
+    const url = `${GLOBAL_DATA_URL}?v=${Date.now()}`;
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Global data request failed: ${response.status}`);
+    }
+
+    const jsonData = await response.json();
+    const defaultData = getDefaultPortfolioData();
+    const mergedData = {
+      ...defaultData,
+      ...jsonData,
+      profile: {
+        ...(defaultData.profile || {}),
+        ...(jsonData.profile || {})
+      },
+      socials: Array.isArray(jsonData.socials) ? jsonData.socials : defaultData.socials,
+      tools: Array.isArray(jsonData.tools) ? jsonData.tools : defaultData.tools,
+      projects: (Array.isArray(jsonData.projects) ? jsonData.projects : defaultData.projects).map(normalizeProject)
+    };
+
+    activeDataSource = "portfolioData.json";
+    console.info(`[Portfolio] Loaded global data from ${GLOBAL_DATA_URL}`, {
+      projects: mergedData.projects.length
+    });
+
+    return mergedData;
+  } catch (error) {
+    console.warn("[Portfolio] Global data unavailable, falling back to localStorage/data.js.", error);
+    return null;
+  }
+}
+
+async function loadPortfolioData() {
+  const globalData = await fetchGlobalPortfolioData();
+
+  if (globalData) {
+    return globalData;
+  }
+
+  activeDataSource = "localStorage/data.js";
+  return getActivePortfolioData();
 }
 
 function splitImagePaths(value) {
@@ -477,14 +534,20 @@ function initScrollReveal() {
   });
 }
 
-renderPortfolioData(getActivePortfolioData());
+renderPortfolioData(getDefaultPortfolioData());
 attachPortfolioImageFallbacks();
 attachToolImageFallbacks();
 initCursorGlow();
-initScrollReveal();
+
+loadPortfolioData().then((data) => {
+  renderPortfolioData(data);
+  attachPortfolioImageFallbacks();
+  attachToolImageFallbacks();
+  initScrollReveal();
+});
 
 window.addEventListener("storage", (event) => {
-  if (event.key === "portfolioData") {
+  if (event.key === "portfolioData" && activeDataSource !== "portfolioData.json") {
     renderPortfolioData(getActivePortfolioData());
     attachPortfolioImageFallbacks();
     attachToolImageFallbacks();

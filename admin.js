@@ -1,4 +1,5 @@
 const STORAGE_KEY = "portfolioData";
+const GLOBAL_DATA_URL = "portfolioData.json";
 const ADMIN_SESSION_KEY = "portfolioAdminLoggedIn";
 const ADMIN_PASSWORD = "admin123";
 
@@ -198,6 +199,53 @@ function loadInitialData() {
   return normalizeData(getDefaultData());
 }
 
+async function fetchGlobalData() {
+  if (!(window.location.protocol === "http:" || window.location.protocol === "https:")) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${GLOBAL_DATA_URL}?v=${Date.now()}`, {
+      cache: "no-store",
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Global data request failed: ${response.status}`);
+    }
+
+    return normalizeData(await response.json());
+  } catch (error) {
+    console.warn("[Admin] Global portfolioData.json unavailable; using local draft/default data.", error);
+    return null;
+  }
+}
+
+async function hydrateAdminFromGlobalData() {
+  if (localStorage.getItem(STORAGE_KEY)) {
+    showStatus(isLoggedIn()
+      ? "Admin panel ready. Browser draft loaded; export JSON and deploy to publish globally."
+      : "");
+    return;
+  }
+
+  const globalData = await fetchGlobalData();
+
+  if (!globalData) {
+    return;
+  }
+
+  adminState = globalData;
+  populateProfileForm();
+  renderAllLists();
+  updateAllPreviews();
+  showStatus(isLoggedIn()
+    ? "Global portfolioData.json loaded. Save creates a browser draft; export JSON and deploy to publish changes."
+    : "");
+}
+
 function showStatus(message, isError = false) {
   if (!elements.statusMessage) {
     return;
@@ -351,7 +399,7 @@ function populateProfileForm() {
   updateProfilePreview();
 }
 
-function saveToStorage(message = "Changes saved. Reload index.html to see the latest data.") {
+function saveToStorage(message = "Draft saved in this browser. Export JSON and deploy portfolioData.json so every device gets the update.") {
   readProfileForm();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(adminState));
   showStatus(message);
@@ -751,7 +799,7 @@ function exportJson() {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  showStatus("JSON exported.");
+  showStatus("portfolioData.json exported. Replace the project file with this JSON, then commit and push to publish globally.");
 }
 
 function importJson(file) {
@@ -767,7 +815,7 @@ function importJson(file) {
       adminState = normalizeData(parsedData);
       populateProfileForm();
       renderAllLists();
-      saveToStorage("JSON imported and saved to localStorage.");
+      saveToStorage("JSON imported as a browser draft. Export and deploy portfolioData.json to publish globally.");
     } catch (error) {
       showStatus("Failed to import JSON. Please check the file format.", true);
     }
@@ -1476,7 +1524,7 @@ elements.resetDefault.addEventListener("click", () => {
   resetProjectForm();
   resetToolForm();
   resetSocialForm();
-  showStatus("Default data restored. index.html will use data.js until you save changes again.");
+  showStatus("Default data restored in this browser. Export and deploy portfolioData.json if you want defaults to become global.");
 });
 
 elements.exportJson.addEventListener("click", exportJson);
@@ -1635,3 +1683,4 @@ bindLivePreview(elements.socialForm, updateSocialPreview);
 updateAllPreviews();
 applyAuthState();
 showStatus(isLoggedIn() ? "Admin panel ready." : "");
+hydrateAdminFromGlobalData();

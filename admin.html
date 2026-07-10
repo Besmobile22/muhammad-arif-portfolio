@@ -43,8 +43,9 @@
       <div class="dashboard-copy">
         <p class="eyebrow">Muhammad Arif Alawi</p>
         <h1>Portfolio Content Manager</h1>
-        <p>Update profile data, project cards, tools, and social links. Changes are saved to localStorage and used by the main portfolio page.</p>
+        <p>Update profile data, project cards, tools, and social links. Save Changes stores a browser draft. To publish globally, export JSON and deploy it as portfolioData.json.</p>
         <p class="asset-note">Masukkan file gambar ke folder assets terlebih dahulu, lalu isi path gambarnya di form.</p>
+        <p class="asset-note">Untuk Cloudflare Pages/static hosting: perubahan admin tidak bisa otomatis menulis ke server. Setelah edit, klik Export JSON, ganti file portfolioData.json di project, commit, push, lalu semua device akan membaca data terbaru.</p>
       </div>
 
       <div class="action-bar" aria-label="Data actions">
@@ -68,8 +69,8 @@
 
       <div class="export-layout">
         <div class="export-copy">
-          <p>Export data portfolio terbaru dari localStorage. Jika localStorage kosong, export akan memakai data default dari data.js.</p>
-          <p class="export-note">Klik Save Changes terlebih dahulu jika ada perubahan form yang belum disimpan.</p>
+          <p>Export data portfolio terbaru sebagai portfolioData.json. File ini adalah sumber global yang dibaca index.html di semua device dengan cache-busting.</p>
+          <p class="export-note">Klik Save Changes lalu Export JSON. Setelah itu replace file portfolioData.json di repo dan deploy ulang ke Cloudflare Pages.</p>
         </div>
 
         <div class="export-actions" aria-label="Portfolio export actions">
