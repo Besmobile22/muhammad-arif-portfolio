@@ -9,7 +9,7 @@
     },
     "cvLink": "assets/CV/cv-muhammad-arif-alawi.pdf",
     "about": [
-      "I am a sixth-semester Multimedia Engineering Technology student at Telkom University with a GPA of 3.72. Throughout my academic and non-academic journey, I have actively participated in various projects, laboratory activities, and competitions at both national and international levels.",
+      "I am a 6th semester Multimedia Engineering Technology student at Telkom University with a GPA of 3.72. Throughout my academic and non-academic journey, I have actively participated in various projects, laboratory activities, and competitions at both national and international levels.",
       "I have experience serving as a Project Manager and Team Leader, strengthening my leadership, communication, and problem-solving abilities. In addition, I specialize in directing, video editing, game development, scriptwriting, and digital media production, combining creativity and technical expertise to deliver impactful digital experiences.",
       "I am passionate about creating innovative solutions, leading collaborative teams, and continuously expanding my knowledge and skills in the fields of multimedia and technology."
     ]
@@ -105,7 +105,7 @@
       "image": "assets/potofolio/porto game.jpeg",
       "images": [
         "assets/potofolio/porto game.jpeg",
-        "assets/potofolio/porto game1.jpeg",
+        "assets/potofolio/porto game4.jpeg",
         "assets/potofolio/porto game2.jpeg"
       ],
       "description": "A virtual reality cooking simulation game inspired by Bandung culture, developed in Unity for Meta Quest devices. In this project, I worked as the Game Programmer responsible for implementing the core gameplay systems, including VR object interaction, satay grilling mechanics, customer order flow, item placement system, plate delivery system, and world-space UI interaction using XR Interaction Toolkit. I also handled gameplay debugging, controller input mapping, and optimization to ensure the experience worked properly in VR.",
@@ -177,7 +177,7 @@
         "After Effects"
       ],
       "demoLink": "",
-      "visitLink": "",
+      "visitLink": "https://drive.google.com/file/d/1XfuUjk_333JWis5CLGzNQY3urInb5tyv/view?usp=drive_link",
       "githubLink": "",
       "featured": false
     },
